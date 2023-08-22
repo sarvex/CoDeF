@@ -85,12 +85,12 @@ class VideoVisualizer(object):
         NOTE: The input frame is assumed to be with `RGB` channel order.
         """
         if self.video is None:
-            height, width = frame.shape[0:2]
+            height, width = frame.shape[:2]
             height = self.frame_height or height
             width = self.frame_width or width
             self.set_frame_size((height, width))
             self.init_video()
-        if frame.shape[0:2] != (self.frame_height, self.frame_width):
+        if frame.shape[:2] != (self.frame_height, self.frame_width):
             frame = resize_image(frame, (self.frame_width, self.frame_height))
         self.video.writeFrame(frame)
 
@@ -133,7 +133,7 @@ if __name__ == '__main__':
                                        frame_size=None,
                                        fps=25.0)
     img_folder = 'src_images/'
-    imgs = sorted(glob(img_folder + '/*.png'))
+    imgs = sorted(glob(f'{img_folder}/*.png'))
     for img in imgs:
         image = cv2.imread(img)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
