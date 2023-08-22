@@ -64,9 +64,7 @@ class TranslationField(nn.Module):
                 xyz_ = torch.cat([input_xyz, xyz_], -1)
             xyz_ = getattr(self, f"warping_field_xyz_encoding_{i+1}")(xyz_)
 
-        t = self.output(xyz_)
-
-        return t
+        return self.output(xyz_)
 
 
 class Embedding(nn.Module):
@@ -100,10 +98,7 @@ class Embedding(nn.Module):
         Outputs:
             out: (B, self.out_channels)
         """
-        if self.identity:
-            out = [x]
-        else:
-            out = []
+        out = [x] if self.identity else []
         for freq in self.freq_bands:
             for func in self.funcs:
                 out += [func(freq*x)]
@@ -145,20 +140,15 @@ class AnnealedEmbedding(nn.Module):
         Outputs:
             out: (B, self.out_channels)
         """
-        if self.identity:
-            out = [x]
-        else:
-            out = []
-
+        out = [x] if self.identity else []
         if self.annealed_begin_step == 0:
             # calculate the w for each freq bands
             alpha = self.N_freqs * step / float(self.annealed_step)
+        elif step <= self.annealed_begin_step:
+            alpha = 0
         else:
-            if step <= self.annealed_begin_step:
-                alpha = 0
-            else:
-                alpha = self.N_freqs * (step - self.annealed_begin_step) / float(
-                    self.annealed_step)
+            alpha = self.N_freqs * (step - self.annealed_begin_step) / float(
+                self.annealed_step)
 
         for j, freq in enumerate(self.freq_bands):
             w = (1 - torch.cos(
@@ -203,18 +193,15 @@ class AnnealedHash(nn.Module):
         if self.annealed_begin_step == 0:
             # calculate the w for each freq bands
             alpha = self.N_freqs * step / float(self.annealed_step)
+        elif step <= self.annealed_begin_step:
+            alpha = 0
         else:
-            if step <= self.annealed_begin_step:
-                alpha = 0
-            else:
-                alpha = self.N_freqs * (step - self.annealed_begin_step) / float(
-                    self.annealed_step)
+            alpha = self.N_freqs * (step - self.annealed_begin_step) / float(
+                self.annealed_step)
 
         w = (1 - torch.cos(math.pi * torch.clamp(alpha * torch.ones_like(self.index_2) - self.index_2, 0, 1))) / 2
 
-        out = x_embed * w.to(x_embed.device)
-
-        return out
+        return x_embed * w.to(x_embed.device)
 
 
 class ImplicitVideo(nn.Module):
@@ -342,6 +329,4 @@ class Deform_Hash3d_Warp(nn.Module):
         self.Deform_Hash3d = Deform_Hash3d(config)
 
     def forward(self, xyt_norm, step=0,aneal_func=None):
-        x = self.Deform_Hash3d(xyt_norm,step=step, aneal_func=aneal_func)
-
-        return x
+        return self.Deform_Hash3d(xyt_norm,step=step, aneal_func=aneal_func)

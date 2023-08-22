@@ -59,11 +59,7 @@ class ImplicitVideoSystem(LightningModule):
         self.h = h
         self.w = w
 
-        if self.hparams.mask_dir:
-            self.num_models = len(self.hparams.mask_dir)
-        else:
-            self.num_models = 1
-
+        self.num_models = len(self.hparams.mask_dir) if self.hparams.mask_dir else 1
         # Decide the number of deformable mlp.
         if hparams.encode_w:
             # Multiple deformation MLP.
@@ -132,8 +128,8 @@ class ImplicitVideoSystem(LightningModule):
                           f'implicit_video_{i}')
                 self.models[f'implicit_video_{i}'] = implicit_video
 
-        for key in self.embeddings:
-            setattr(self, key, self.embeddings[key])
+        for key, value in self.embeddings.items():
+            setattr(self, key, value)
         for key in self.models:
             setattr(self, key, self.models[key])
 
@@ -144,35 +140,29 @@ class ImplicitVideoSystem(LightningModule):
             ts_w_norm = ts_w / self.seq_len
             ts_w_norm = ts_w_norm.repeat(grid.shape[0], 1)
             input_xyt = torch.cat([grid, ts_w_norm], dim=-1)
-            if 'aneal_hash' in self.embeddings.keys():
-                deform = self.models[f'warping_field_{i}'](
-                    input_xyt,
-                    step=step,
-                    aneal_func=self.embeddings['aneal_hash'])
-            else:
-                deform = self.models[f'warping_field_{i}'](input_xyt)
-            if encode_w:
-                deformed_grid = deform + grid
-            else:
-                deformed_grid = grid
-        else:
-            if encode_w:
-                e_w = self.embeddings[f'w_{i}'](repeat(ts_w, 'b n ->  (b l) n ',
-                                                    l=grid.shape[0])[:, 0])
+            deform = (
+                self.models[f'warping_field_{i}'](
+                    input_xyt, step=step, aneal_func=self.embeddings['aneal_hash']
+                )
+                if 'aneal_hash' in self.embeddings.keys()
+                else self.models[f'warping_field_{i}'](input_xyt)
+            )
+            return deform + grid if encode_w else grid
+        elif encode_w:
+            e_w = self.embeddings[f'w_{i}'](repeat(ts_w, 'b n ->  (b l) n ',
+                                                l=grid.shape[0])[:, 0])
                 # Whether to use annealed positional encoding.
-                if self.hparams.annealed:
-                    pe_w = self.embeddings['xyz_w'][i](grid, step)
-                else:
-                    pe_w = self.embeddings['xyz_w'][i](grid)
-
-                # Warping field type.
-                deform = self.models[f'warping_field_{i}'](torch.cat(
-                    [e_w, pe_w], 1))
-                deformed_grid = deform + grid
-            else:
-                deformed_grid = grid
-
-        return deformed_grid
+            pe_w = (
+                self.embeddings['xyz_w'][i](grid, step)
+                if self.hparams.annealed
+                else self.embeddings['xyz_w'][i](grid)
+            )
+            # Warping field type.
+            deform = self.models[f'warping_field_{i}'](torch.cat(
+                [e_w, pe_w], 1))
+            return deform + grid
+        else:
+            return grid
 
     def forward(self,
                 ts_w,
@@ -191,8 +181,8 @@ class ImplicitVideoSystem(LightningModule):
             deform_list.append(deformed_grid)
             # Compute optical flow loss.
             flow_loss = 0
-            if self.hparams.flow_loss > 0 and not self.hparams.test:
-                if flows.max() > -1e2 and step > self.hparams.flow_step:
+            if flows.max() > -1e2 and step > self.hparams.flow_step:
+                if self.hparams.flow_loss > 0 and not self.hparams.test:
                     grid_new = grid + flows.squeeze(0)
                     deformed_grid_new = self.deform_pts(
                         ts_w + 1, grid_new, encode_w, step, i)
@@ -222,11 +212,9 @@ class ImplicitVideoSystem(LightningModule):
 
             results_list.append(results)
 
-        ret = edict(rgbs=results_list,
-                    flow_loss=flow_loss_list,
-                    deform=deform_list)
-
-        return ret
+        return edict(
+            rgbs=results_list, flow_loss=flow_loss_list, deform=deform_list
+        )
 
     def setup(self, stage):
         if not self.hparams.test:
@@ -397,7 +385,6 @@ class ImplicitVideoSystem(LightningModule):
         ret = self(ts_w, grid, self.hparams.encode_w, self.global_step)
         ret_c = self(ts_w, grid_c, False, self.global_step)
 
-        log = {}
         W, H = self.hparams.img_wh
 
         rgbs_flattend = rearrange(rgbs, 'b h w c -> (b h w) c')
@@ -418,7 +405,7 @@ class ImplicitVideoSystem(LightningModule):
         self.logger.experiment.add_images('val/GT_Reconstructed', stack,
                                           self.global_step)
 
-        return log
+        return {}
 
     def test_step(self, batch, batch_idx):
         ts_w = batch['ts_w']

@@ -29,9 +29,9 @@ def check_file_ext(filename, *ext_list):
         `True` if the filename is with one of extensions in `ext_list`,
         otherwise `False`.
     """
-    if len(ext_list) == 0:
+    if not ext_list:
         return False
-    ext_list = [ext if ext.startswith('.') else '.' + ext for ext in ext_list]
+    ext_list = [ext if ext.startswith('.') else f'.{ext}' for ext in ext_list]
     ext_list = [ext.lower() for ext in ext_list]
     basename = os.path.basename(filename)
     ext = os.path.splitext(basename)[1].lower()
@@ -266,7 +266,7 @@ def parse_image_size(obj):
             numbers = tuple(map(int, splits))
         else:
             numbers = tuple(obj)
-        if len(numbers) == 0:
+        if not numbers:
             height = 0
             width = 0
         elif len(numbers) == 1:
@@ -327,7 +327,7 @@ def get_grid_shape(size, height=0, width=0, is_portrait=False):
         if size % height == 0:
             width = size // height
             break
-        height = height - 1
+        height -= 1
 
     return (width, height) if is_portrait else (height, width)
 
@@ -343,8 +343,9 @@ def list_images_from_dir(directory):
     Returns:
         A list of sorted filenames, with the directory as prefix.
     """
-    image_list = []
-    for filename in os.listdir(directory):
-        if check_file_ext(filename, *IMAGE_EXTENSIONS):
-            image_list.append(os.path.join(directory, filename))
+    image_list = [
+        os.path.join(directory, filename)
+        for filename in os.listdir(directory)
+        if check_file_ext(filename, *IMAGE_EXTENSIONS)
+    ]
     return sorted(image_list)

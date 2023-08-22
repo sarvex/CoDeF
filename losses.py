@@ -18,9 +18,7 @@ class MSELoss(nn.Module):
 def rgb_to_gray(image):
     gray_image = (0.299 * image[:, 0, :, :] + 0.587 * image[:, 1, :, :] +
                   0.114 * image[:, 2, :, :])
-    gray_image = gray_image.unsqueeze(1)
-
-    return gray_image
+    return gray_image.unsqueeze(1)
 
 
 def compute_gradient_loss(pred, gt, mask):
@@ -43,9 +41,9 @@ def compute_gradient_loss(pred, gt, mask):
     pred_grad = torch.cat([gradient_a_x, gradient_a_y], dim=1)
     gt_grad = torch.cat([gradient_b_x, gradient_b_y], dim=1)
 
-    gradient_difference = torch.abs(pred_grad - gt_grad).mean(dim=1,keepdim=True)[mask].sum()/(mask.sum()+1e-8)
-
-    return gradient_difference
+    return torch.abs(pred_grad - gt_grad).mean(dim=1, keepdim=True)[
+        mask
+    ].sum() / (mask.sum() + 1e-8)
 
 
 loss_dict = {'mse': MSELoss}

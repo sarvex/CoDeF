@@ -157,10 +157,8 @@ def get_opts():
         with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
         args_dict = vars(args)
-        args_dict.update(config)
-        args_new = argparse.Namespace(**args_dict)
-        return args_new
-
+        args_dict |= config
+        return argparse.Namespace(**args_dict)
     return args
 
 
