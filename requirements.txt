@@ -1,5 +1,5 @@
 pytorch_lightning==2.0.2
-easydict==1.10
+easydict==1.11
 einops==0.6.1
 ipdb==0.13.13
 numpy==1.24.3
